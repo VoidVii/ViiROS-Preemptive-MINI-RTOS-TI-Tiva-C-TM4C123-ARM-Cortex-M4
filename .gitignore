@@ -1,0 +1,32 @@
+# IAR Projektdateien (nicht versionieren!)
+*.ewd
+*.ewp
+*.eww
+*.ewt
+*.dep
+Debug/
+Release/
+settings/
+
+# Compiler-Ausgaben
+*.o
+*.out
+*.hex
+*.bin
+*.elf
+*.map
+*.lst
+
+# Temporäre Dateien
+*.log
+*.tmp
+*.bak
+*.swp
+
+# IDE-spezifisch
+.vscode/
+.idea/
+
+# Systemdateien
+Thumbs.db
+.DS_Store
