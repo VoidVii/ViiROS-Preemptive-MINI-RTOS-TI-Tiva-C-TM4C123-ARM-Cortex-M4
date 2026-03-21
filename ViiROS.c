@@ -234,6 +234,7 @@ void ViiROS_BlockWatch(void)
 /**
 *@brief Creates threads including fabricated initial hard- and software stack
 *
+*@note Stack-Size in Bytes (Example: 80 Words = 320 Bytes : 1 Word = 4 Bytes)
 *@note
 *
 *                LOW ADDRESS

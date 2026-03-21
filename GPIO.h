@@ -12,6 +12,29 @@
 #include <stdint.h>
 
 /*==============================================================================
+ *                           PIN / WRITE VALUE DECLATARION
+ *==============================================================================*/
+
+/** @name WRITE VALUE
+ *  @brief GPIO write value: ON / OFF
+ *  @{
+ */
+#define ON      1U
+#define OFF     0U
+/** @} */
+
+/** @name GPIOF pins
+ *  @brief Pin definition for GPIO PORT F
+ *  @{
+ */
+#define Switch_2   0U  /**< GPIOF PIN 0 */
+#define RED_LED    1U  /**< GPIOF PIN 1 */
+#define BLUE_LED   2U  /**< GPIOF PIN 2 */
+#define GREEN_LED  3U  /**< GPIOF PIN 3 */
+#define Switch_1   4U  /**< GPIOF PIN 4 */
+/** @} */
+
+/*==============================================================================
  *                                REGISTER ADDRESSES
  *==============================================================================*/
 

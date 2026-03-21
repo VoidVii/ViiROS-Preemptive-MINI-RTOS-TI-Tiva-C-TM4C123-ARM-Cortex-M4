@@ -2,7 +2,7 @@
 #define VIIROS_H_
 
 /*============================================================================*/
-/*                       Includes & Defines                                   */
+/*                           Includes & Defines                               */
 /*============================================================================*/
 #include <stdint.h>
 
@@ -65,7 +65,7 @@ void ViiROS_BlockTime(uint32_t time);
 void ViiROS_BlockWatch(void);
 
 
-
+/* Thread start */
 void ViiROS_ThreadStart(
                         ViiROS_Thread *me,
                         ViiROS_ThreadHandler thread_Handler,
