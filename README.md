@@ -198,14 +198,28 @@ Bei der Umsetzung habe ich meinen Wissen, dass ich im Modern Embedded Systems Pr
   - Lösung:   Verstehen, dass ViiROS eigene Stacks erstellt und auf eigenen PSP läuft, der nicht im CSTACK liegt.
 
 ## KI-Unterstützung:
-- Informationssuche
-- Wissensvermittlung & Verständnis
-- Kritik & Bewertung von Lösungen
-- Quiz & Verständnisprüfung
-- Diskussion & Entscheidungsfindung
-- Architekturdiagramm (aus meinem Code generiert)
+**Aus persönlicher Erfahrung kann ich sagen, dass ohne die heutigen KI´s wäre es mir unmöglich in dieser kurzen Zeit so viel Wissen abzurufen und anzueignen.**
+### Informationssuche
+- Bei "normalen" Problemen die Ratlosigkeit auslösten oft eine große Hilfe dank schnellem Browsing im Web
+- Bei wirklich tiefen Systemproblemen wie Stackoverflow, Stack-Pointer-Koruption erzielte die KI etwas unzufriedene bis unbrauchbare Lösungsvorschläge
+### Wissensvermittlung & Verständnis
+- Technische Fragen und Themengebiete näher erläutern und Quellen angeben
+- Problemgebiete gezielt diskutieren und durchdringen, um Verständnis zu erlangen
+- Bei Quiz & Verständnisprüfung diente die KI als persönlicher Coach der das Wissen gezielt abfragte und bewertete
+- Beim tieferen Eintauchen in manche Themengebiete erzeugte die KI immer wieder die gleichen Antwortausgaben
+### Kritik & Bewertung von Lösungen
+- Für kurze Codereviews meist akzeptables und gutes Feedback
+- Bei langen Code-Abschnitten oft einiges durcheinandergebracht
+- Dennoch eine enorme Zeitersparnis durch nahe zu sofortiges Feedback auch wenn es nicht immer zu 100% 1:1 zu meiner Problemstellung passte
+### Gedanken und Ideen ordnen
+- Super Tool zum Sammeln und Archivieren von Gedankengängen und Ideen
+- "Brainstorming" systematisch ordnen und sortieren
+### Erstellung von Architekturdiagramm
+- Generieren von Diagrammen auf eigener Codebasis mehr als zufrieden stellend
 
 **Der gesamte Code, das Debugging, die Architekturentscheidungen und die finale Implementierung stammen von mir.**
+**Ich habe nicht das Rad neu erfunden, aber in diesen Projekt wurde kein Code generiert und kopiert.**
+**Das Wissen aus dem Studium und Weiterbildungskursen wurde nach bestem Wissen und Gewissen angewendet.**
 
 # Build info
 - IAR Embedded Workbench (Arm)
