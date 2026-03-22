@@ -1,7 +1,15 @@
 # Preemptive Scheduler ViiROS for ARM Cortex-M4
-Ein minimaler, präemptiver Echtzeitkernel für Tiva C Series LaunchPad TM4C123GXL (TM4C123GH6PM - ARM Cortex-M4).
+Ein minimaler, präemptiver Echtzeitkernel entwickelt auf dem Tiva C Series LaunchPad TM4C123GXL (TM4C123GH6PM - ARM Cortex-M4).
 
-Entwickelt als Lernprojekt für RTOS-Konzepte.
+Entwickelt als Lernprojekt für RTOS-Konzepte unter Anwendung der erworbenen Kenntnisse aus Modern Embedded Systems Programming Course von Miro Samec (Quantum Leaps).
+
+Das System nutzt den SysTick als Zeitbasis von 1 ms und läuft auf dem PSP (Process Stack Pointer) statt auf dem MSP (Main Stack Pointer).
+Soabld ViiROS die Kontrolle über das System hat wird der MSP nicht mehr verwendet. 
+
+
+## Tiva C Series LaunchPad TM4C123GXL (TM4C123GH6PM)
+<img width="640" height="360" alt="grafik" src="https://github.com/user-attachments/assets/1c4a9de0-9fca-4949-b539-c2568f10de35" />
+Quelle: https://www.ti.com/tool/EK-TM4C123GXL
     
 ## Scheduler
     void ViiROS_Scheduler(void)
@@ -122,7 +130,6 @@ Das folgende Diagramm wurde aus meinem Code in `ViiROS.c` abgeleitet und mit Hil
 
 # Allgemeine Hinweise zum Starten des Systems
 ViiROS kann mit bis zu 32 Threads verschiedener Prioritäten arbeiten. 
-Das System nutzt den SysTick als Zeitbasis von 1 ms und den PSP (Process Stack Pointer) nicht auf dem MSP (Main Stack Pointer).
 
 Für die Threads muss der Thread (TCB), Stack mit Stackgröße, Thread-Handler in main.c deklariert und programmiert werden.
 Dieses wurde für den Idle-Thread bereits in ViiROS.c hinterlegt. Der Idle-Thread wird mit ViiROS_Init() gestartet.
