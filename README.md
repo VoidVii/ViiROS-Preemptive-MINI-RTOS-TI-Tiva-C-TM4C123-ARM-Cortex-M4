@@ -2,9 +2,78 @@
 Ein minimaler, präemptiver Echtzeitkernel für den TI Tiva TM4C123 (ARM Cortex-M4).
 Entwickelt als Lernprojekt für RTOS-Konzepte.
 
-# ViiROS - Funktionsweise 
-<img width="3147" height="5511" alt="deepseek_mermaid_20260322_2fd92a" src="https://github.com/user-attachments/assets/4e60c7c8-3fd4-4cf6-ad05-aeb0792d5434" />
+## Architektur
 
+Das folgende Diagramm wurde aus meinem Code in `ViiROS.c` abgeleitet und mit Hilfe einer KI visualisiert.
+
+    ┌─────────────────────────────────────────────────────────────────────────────┐
+    │                              MAIN                                           │
+    │  SystemCoreClockUpdate → __disable_irq → SysTick_Init → GPIO_Init           │
+    │  → ViiROS_Init (startet Idle-Thread, setzt ViiROS_current = NULL)           │
+    │  → __enable_irq → ViiROS_Run()                                              │
+    └─────────────────────────────────────────────────────────────────────────────┘
+                                          │
+                                          ▼
+    ┌─────────────────────────────────────────────────────────────────────────────┐
+    │                         ViiROS_Run()                                        │
+    │  ViiROS_lastInit() → __disable_irq → ViiROS_Scheduler() → __enable_irq      │
+    │  (kehrt nie zurück)                                                         │
+    └─────────────────────────────────────────────────────────────────────────────┘
+                                          │
+                                          │ (SysTick läuft parallel, 1 ms Takt)
+                                          ▼
+    ┌─────────────────────────────────────────────────────────────────────────────┐
+    │                      SYSTICK (1 ms Timer)                                   │
+    │  ┌─────────────────────────────────────────────────────────────────────┐    │
+    │  │ BlockWatch()                                                        │    │
+    │  │ - durchläuft blockierte Threads (blockedMask)                       │    │
+    │  │ - dekrementiert thread->blocktime                                   │    │
+    │  │ - wenn blocktime == 0: setzt readyMask, löscht blockedMask          │    │
+    │  └─────────────────────────────────────────────────────────────────────┘    │
+    │                                      │                                      │
+    │                                      ▼                                      │
+    │  ┌─────────────────────────────────────────────────────────────────────┐    │
+    │  │ Scheduler()                                                         │    │
+    │  │ - prüft readyMask                                                   │    │
+    │  │ - falls readyMask == 0 → Idle-Thread (Prio 0)                       │    │
+    │  │ - sonst: highPrio = LOG2(readyMask) → Active_Thread[highPrio]       │    │
+    │  │ - wenn current != next: ViiROS_next = next → trigger PendSV         │    │
+    │  └─────────────────────────────────────────────────────────────────────┘    │
+    └─────────────────────────────────────────────────────────────────────────────┘
+                                          │
+                                          │ (trigger PendSV)
+                                          ▼
+    ┌─────────────────────────────────────────────────────────────────────────────┐
+    │                      PENDSV_HANDLER (Assembler)                             │
+    │  ┌─────────────────────────────────────────────────────────────────────┐    │
+    │  │ CPSID i          (Interrupts aus)                                   │    │
+    │  │ if(ViiROS_current != NULL) {                                        │    │
+    │  │     PUSH {r4-r11}                   (Callee-saved sichern)          │    │
+    │  │     ViiROS_current->sp = SP         (Stack speichern)               │    │
+    │  │ }                                                                   │    │
+    │  │ SP = ViiROS_next->sp                (Stack des neuen Threads laden) │    │
+    │  │ ViiROS_current = ViiROS_next        (aktuellen Thread aktualisieren)│    │
+    │  │ POP {r4-r11}                        (Callee-saved wiederherstellen) │    │
+    │  │ CPSIE i          (Interrupts an)                                    │    │
+    │  │ BX LR            (Rückkehr zum neuen Thread)                        │    │
+    │  └─────────────────────────────────────────────────────────────────────┘    │
+    └─────────────────────────────────────────────────────────────────────────────┘
+                                          │
+                                          ▼
+    ┌─────────────────────────────────────────────────────────────────────────────┐
+    │                           THREADS (auf PSP)                                 │
+    │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
+    │  │ Red (Prio 9)    │  │ Blue (Prio 8)   │  │ Green (Prio 7)  │              │
+    │  │ Blinkt alle     │  │ Blinkt mit      │  │ Taster-Polling  │              │
+    │  │ 50/50 ms        │  │ Muster 50/50/   │  │ + Entprellung   │              │
+    │  │                 │  │ 250/120 ms      │  │ + Flankenerk.   │              │
+    │  └─────────────────┘  └─────────────────┘  └─────────────────┘              │
+    │                                                                             │
+    │  ┌─────────────────────────────────────────────────────────────────────┐    │
+    │  │ Idle (Prio 0) – läuft nur wenn readyMask == 0                       │    │
+    │  │ __WFI() – CPU schläft, wartet auf nächsten Interrupt                │    │
+    │  └─────────────────────────────────────────────────────────────────────┘    │
+    └─────────────────────────────────────────────────────────────────────────────┘
 
 
 # Allgemeine Hinweise zum Starten des Systems
