@@ -7,7 +7,7 @@ Das System nutzt den SysTick als Zeitbasis von 1 ms. Sobald ViiROS die Kontrolle
 
 
 ## Tiva C Series LaunchPad TM4C123GXL (TM4C123GH6PM)
-<img width="640" height="360" alt="grafik" src="https://github.com/user-attachments/assets/1c4a9de0-9fca-4949-b539-c2568f10de35" />
+<img width="400" height="360" alt="grafik" src="https://github.com/user-attachments/assets/1c4a9de0-9fca-4949-b539-c2568f10de35" />
 Quelle: https://www.ti.com/tool/EK-TM4C123GXL
     
 ## Scheduler
@@ -36,16 +36,12 @@ Quelle: https://www.ti.com/tool/EK-TM4C123GXL
 ## Periodischer Ablauf:
 
                     SysTick (1 ms)
+                         |
+                    BlockWatch (dekrementiert blocktime, set/clear readyMask/blockedMask)
                          │
-                    BlockWatch
-                    (dekrementiert blocktime,
-                     setzt readyMask/blockedMask)
+                    Scheduler (LOG2(readyMask) → höchste Prio)
                          │
-                    Scheduler
-                    (LOG2(readyMask) → höchste Prio)
-                         │
-                    PendSV
-                    (Context Switch)
+                    PendSV (Context Switch)
                          │
                     Thread läuft auf PSP
 
