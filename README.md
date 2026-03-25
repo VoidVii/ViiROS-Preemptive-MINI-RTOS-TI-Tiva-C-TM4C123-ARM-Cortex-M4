@@ -21,7 +21,7 @@ Das System nutzt den SysTick als Zeitbasis von 1 ms. Sobald ViiROS die Kontrolle
 	- Präemtiver Scheduler
 	- Prioritätenbasiert 
 	- Bitmasken (32 Bit -> 32 Prioritäten) mit (32 - CLZ) (count leading zeros) -> O(1):
-		- readyMask    	0b01000000000000000000000100000000 (Prio 31, 9 ready)
+		- readyMask     0b01000000000000000000000100000000 (Prio 31, 9 ready)
 		- blockedMask  	0b00000000000000000000000000100001 (Prio 6, 1 blocked)
 
 - Timing & Blocking
@@ -129,6 +129,60 @@ Das System nutzt den SysTick als Zeitbasis von 1 ms. Sobald ViiROS die Kontrolle
 	       " B         PendSV_restore       \n"  
 	  );
 	}
+### PendSV Funktionsweise:
+#### Beim ersten PendSV in System:
+- Current-Thread = NULL -> springt zu PendSV_first_run:
+  	- Setze Special Register CONTROL = 0x02 (SPSEL = 1 => Bit 1) ==> sagt der CPU "Benutze PSP" (Process Stack Pointer)
+  	- Setze LR = 0xFFFFFFFD (EXC_RETURN) ==> Spring aus dem Interrupt und nutze PSP
+  	- ISB ==> notwendig um Änderungen zu übernehmen
+  	- Spring zu  PendSV_restore
+  		- Lade ViiROS_next => Thread_TCB => Thread->sp in R0
+  	 	- LDMIA     R0!, {R4-R11} (load multible and increment after) => Lade R4 vom Stack in R4 und inkrementiere R0
+  	  	- nach dem R11 geladen wurde zeigt der R0 im Register auf R0 in unserem Thread-Sack
+  	  	- MSR       PSP, R0  (move general purpose register into special register)	Setzte nun PSP auf den Wert von r0
+  	  	- PSP ist nun auf R0 im Stack ausgerichtet und bereit für den Sprung aus dem Interrupt
+  	  	- Nach BX LR werden die Hardware Register (Caller Save) automatisch geladen 
+
+**Wichtig:** **CONTROL = 0x02** und **LR = 0xFFFFFFFD** in Verbindung sind wichtig. Da der erste PendSV-Interrupt-Aufruf aus main() erfolgt steht zu nächst der falsche Wert im LR-Register!!! Wird der Wert in LR nicht auf 0xFFFFFFFD gesetzt so kehrt der PendSV-Interrupt wieder zurück zu main.c und beendet das Programm. 
+
+### Normaler PendSV-Durchlauf
+Nach dem aller ersten Durchlauf von PendSV wird der Brench PendSV_first_run nie wieder aufgerufen! Jetzt wird immer der normale Durchlauf für den Context Switch durch gelaufen.
+- Speichere den Kontext des aktuellen Threads
+	- MRS       R1, PSP (move special register intro general purpose register) => lade PSP und R1
+ 	- STMDB     R1!, {R4-R11} (store multible and decrement before) => dekrementiere R1 und speichere R11 auf PSP-Stack -> --R1 save R10
+  	- Reihenfolge ist hier umgedreht R11 -> R4  (beim Laden R4 - R11)
+	- STR       R1, [R0]  => Speichere R1 (PSP) in [R0] (Thread->SP) **R0 = Thread_TCB => [Thread_TCN] = Thread->SP (erstes Atrribut im TCB)
+	- Somit sind R4 - R11 auf dem Stack von Current-Thread und der PSP im Current-Thread->SP gespeichert!!
+- Lade den nächsten Thread
+	- Lad in R0 den Thread->SP
+ 	- LDMIA     R0!, {R4-R11} => Lade R4 vom Stack in R4 und inkrementiere R0
+  	- Reihenfolge beim Laden ist R4 - R11
+  	- R0 zeigt nach dem Laden auf R0 auf dem PSP-Stack und ist bereit zum Laden der Hardware Register
+  	- MSR       PSP, R0 => Setze PSP auf neune R0
+  	- STR       R1, [R2] => setze ViiROS_current auf ViiROS_next
+ 
+			LOW ADDRESS
+			*                --------------
+			*        --------R4 <-- sp (Process Stack Pointer) vor den Laden
+			*                R5
+			*                R6
+			*   Software stk R7
+			*                R8
+			*                R9
+			*                R10
+			*       ---------R11
+			*                R0 <-- sp (Process Stack Pointer) nach dem den Laden
+			*                R1
+			*                R2
+			*   Hardware stk R3
+			*                R12
+			*                LR
+			*                PC
+			*       --------xPSR
+			*                --------------
+			*                HIGH ADDRESS
+
+
 
 ## Logic Analyzer View - Folgt noch um die präemptive Wirkungsweise zu beweisen!
 ### PulseView software from sigrok.org 
