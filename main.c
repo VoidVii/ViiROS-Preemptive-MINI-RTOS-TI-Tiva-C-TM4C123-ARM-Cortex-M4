@@ -118,8 +118,8 @@ int main()
     GPIO_ConfigureOutput(GPIO_PORTF, GREEN_LED);  /* Green LED pin as output */
     
     
-    GPIO_WritePin(GPIO_PORTF, RED_LED,OFF);  /* defined state == 0 */
-    GPIO_WritePin(GPIO_PORTF, BLUE_LED,OFF);  /* defined state == 0 */
+    GPIO_WritePin(GPIO_PORTF, RED_LED, OFF);  /* defined state == 0 */
+    GPIO_WritePin(GPIO_PORTF, BLUE_LED, OFF);  /* defined state == 0 */
     GPIO_WritePin(GPIO_PORTF, GREEN_LED, OFF); /* defined state == 0 */
     
     /* ViiROS - Initialization */

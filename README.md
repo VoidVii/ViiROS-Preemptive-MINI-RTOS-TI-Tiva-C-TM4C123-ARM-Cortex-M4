@@ -1,5 +1,45 @@
-# Preemptive Scheduler ViiROS for ARM Cortex-M4
+# Preemptive Kernel ViiROS auf ARM Cortex-M4 (TM4C123GH6PM)
+Präemtives Mini-RTOS (Real-Time Operating System) für ARM Cortex-M.
+Mit klassischem ARM Cortex-M Context Switch über PendSV, fabrizierten Thread-Stacks und zeit- u. prioritätbasiertem O(1)-Scheduling über SysTick. 
+
+## Überblick
+Dieses Projekt hatte das Ziel theoretische Grundkenntise in Embedded-C, Low-Level Embedded Systems und RTOS praxisnah anzuwenden und auszubauen.
+Es baut auf dem vorherigen Projekt "Kooperativer Scheduler" auf und taucht tief in die Prinzipien eines RTOS ein.
+Dabei wurde von grundauf ein System aufgebaut mit folgenden Features:
+	- Kernel / Scheduler:
+		- Präemtiver Scheduler
+		- Prioritätenbasiert (mit Bitmasken für ready/blocked + CLZ() -> O(1))
+
+	- Thread-System
+		- Thread Control Blocks (TCB)
+		- Stack pro Thread
+		- fabrizierter Inital-Stack (aufgebaut als wäre Thread vom Interrupt unterbochen)
+		- Parallele Ausführung (Multitasking-System)
+
+	- Timing & Blocking
+
+	- Kontextwechsel (Context Switch):
+		- PendSV als Context Swtich Interrupt in assambly
+		- Manuelles Sichern/Laden der Calle Save Register (R4-R11)
+		- Manuelles PSP setzen
+
+	- CPU-Modus-Handling:
+		- Wechsel:
+			- von Handler Mode zu Thread Mode
+			- MSP (Main Stack Pointer) für Interrupts
+			- PSP (Process Stack pointer) für Threads
+		- Nutzung von:
+			- Spacial Register CONTROL (= 0x02 -> SPSEL; Umschalten von MSP -> PSP)
+			- EXC_RETURN 0xFFFFFFFD (Scheduler returns from Interrupt into thread)
+
+	- 
+
+
+
 Ein minimaler, präemptiver Echtzeitkernel entwickelt auf dem Tiva C Series LaunchPad TM4C123GXL (TM4C123GH6PM - ARM Cortex-M4).
+
+
+
 
 Entwickelt als Lernprojekt für RTOS-Konzepte unter Anwendung der erworbenen Kenntnisse aus Modern Embedded Systems Programming Course von Miro Samec (Quantum Leaps).
 
@@ -201,29 +241,7 @@ Ziel des Projekts war es, die Funktionsweise und Besonderheiten eines preemptive
   - Folge:    Verunsicherung, ob das System korrekt läuft.
   - Lösung:   Verstehen, dass ViiROS eigene Stacks erstellt und auf eigenen PSP läuft, der nicht im CSTACK liegt.
 
-## KI-Unterstützung:
-**Aus persönlicher Erfahrung kann ich sagen, dass ohne die heutigen KI´s wäre es mir unmöglich in dieser kurzen Zeit so viel Wissen abzurufen und anzueignen.**
-### Informationssuche
-- Bei "normalen" Problemen die Ratlosigkeit auslösten oft eine große Hilfe dank schnellem Browsing im Web
-- Bei wirklich tiefen Systemproblemen wie Stackoverflow, Stack-Pointer-Koruption erzielte die KI etwas unzufriedene bis unbrauchbare Lösungsvorschläge
-### Wissensvermittlung & Verständnis
-- Technische Fragen und Themengebiete näher erläutern und Quellen angeben
-- Problemgebiete gezielt diskutieren und durchdringen, um Verständnis zu erlangen
-- Bei Quiz & Verständnisprüfung diente die KI als persönlicher Coach der das Wissen gezielt abfragte und bewertete
-- Beim tieferen Eintauchen in manche Themengebiete erzeugte die KI immer wieder die gleichen Antwortausgaben
-### Kritik & Bewertung von Lösungen
-- Für kurze Codereviews meist akzeptables und gutes Feedback
-- Bei langen Code-Abschnitten oft einiges durcheinandergebracht
-- Dennoch eine enorme Zeitersparnis durch nahe zu sofortiges Feedback auch wenn es nicht immer zu 100% 1:1 zu meiner Problemstellung passte
-### Gedanken und Ideen ordnen
-- Super Tool zum Sammeln und Archivieren von Gedankengängen und Ideen
-- "Brainstorming" systematisch ordnen und sortieren
-### Erstellung von Architekturdiagramm
-- Generieren von Diagrammen auf eigener Codebasis mehr als zufrieden stellend
 
-**Der gesamte Code, das Debugging, die Architekturentscheidungen und die finale Implementierung stammen von mir.**
-**Ich habe nicht das Rad neu erfunden, aber in diesen Projekt wurde kein Code generiert und kopiert.**
-**Das Wissen aus dem Studium und Weiterbildungskursen wurde nach bestem Wissen und Gewissen angewendet.**
 
 # Build info
 - IAR Embedded Workbench (Arm)

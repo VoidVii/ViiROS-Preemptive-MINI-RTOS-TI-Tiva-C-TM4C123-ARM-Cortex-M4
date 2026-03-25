@@ -163,9 +163,32 @@ void ViiROS_Run(void)
   /* Give up control to ViiROS */
   ViiROS_Scheduler();
   
-  __enable_irq(); /**< code will never execute*/
-
+  __enable_irq();
+  
+  /**< code will never execute*/
+ while(1)
+ {   
+   GPIO_WritePin(GPIO_PORTF, RED_LED, 1U);
+    
+   for(uint32_t i = 0; i < 100000; i ++){}
+    
+    GPIO_WritePin(GPIO_PORTF, RED_LED, 0U);
+    for(uint32_t i = 0; i < 100000; i ++){}
+    
+    GPIO_WritePin(GPIO_PORTF, GREEN_LED, 1U);
+    for(uint32_t i = 0; i < 100000; i ++){}
+    
+    GPIO_WritePin(GPIO_PORTF, GREEN_LED, 0U);
+    for(uint32_t i = 0; i < 100000; i ++){}
+    
+    GPIO_WritePin(GPIO_PORTF, BLUE_LED, 1U);
+    for(uint32_t i = 0; i < 100000; i ++){}
+    
+    GPIO_WritePin(GPIO_PORTF, BLUE_LED, 0U);
+    for(uint32_t i = 0; i < 100000; i ++){}
+ }
 }
+
 /*----------------------------- BlockTime() ----------------------------------*/
 
 /**
@@ -269,21 +292,22 @@ void ViiROS_ThreadStart(
 {
   /** Check if priority is in range and not already taken */
   if (priority <= 32 &&
-      Active_Thread[priority] == (ViiROS_Thread*)0){
+      Active_Thread[priority] == NULL){
       
       /**
         Setup the sp to the top of the stack of the thread.
         AAPCS (Procedure Call Standard): 8-Byte-alignment on ARM Cortex-M4    
       */
-        
-      uint32_t *sp = (uint32_t *)((((uint32_t)stk_Storage + stk_Size)/8)*8);
+      uint32_t *sp = (uint32_t *)((uint32_t)stk_Storage + stk_Size);
+      sp = (uint32_t *)((uint32_t)sp & ~0x7);  
+     // uint32_t *sp = (uint32_t *)((((uint32_t)stk_Storage + stk_Size)/8)*8);
       /**
         Other method for 8-byte-alignment:
         sp = (uint32_t *)((uint32_t)sp & ~7);  // 8-Byte-Alignment */
       
       /** hardware stack frame - caller saved */
       *--sp = (1U << 24);        /**< xPSR (Thumb-Bit = 1 if 0 = HardFault)*/
-      *--sp = (uint32_t)thread_Handler; /* PC – entry point */
+      *--sp = ((uint32_t)thread_Handler | 1U); /* PC – entry point */
       *--sp = 0xFFFFFFFD;        /**< LR = 0xFFFFFFFD => EXC_RETURN */
       *--sp = 0xCAFECAFE;        /**< R12 */
       *--sp = 0xCAFECAFE;        /**< R3 */
@@ -300,7 +324,9 @@ void ViiROS_ThreadStart(
       *--sp = 0xCAFEBABE;        /**< R5 */
       *--sp = 0xCAFEBABE;        /**< R4 */
       
-      me->sp = sp; /**< set sp of thread to the calculated calue */
+      me->sp = sp;
+      
+      //me->sp = sp; /**< set sp of thread to the calculated calue */
 
       /** Register the thread in the active thread array */
       Active_Thread[priority] = me;
@@ -378,33 +404,41 @@ __stackless void PendSV_Handler(void)
        " CPSID     i                    \n"
          
         /* if (ViiROS_current != 0) */
-       " LDR.N     R2, =ViiROS_current   \n"
-       " LDR       R0, [R2]              \n"
-       " CMP       R0, #0                \n"
-       " BEQ       PendSV_restore        \n"   
+       " LDR.N     R2, =ViiROS_current   \n"    // R2 = current 
+       " LDR       R0, [R2]              \n"    // R0 = current-TCB
+       " CBZ       R0, PendSV_first_run  \n"    // R0 == 0? -> restore
+
+       /* save R4 - R11 on stack */  
+       " MRS       R1, PSP               \n"    // R1 = PSP
          
-        /* save R4 - R11 on stack */  
-       " PUSH      {r4-r11}              \n"
-         
-        /* ViiROS_current->sp = sp; */
-       " LDR       R0, [R2]              \n"     
-       " MOV       R1, SP                \n"
-       " STR       R1, [R0]              \n"
+       /* Store Multiple, Decrement Before */
+       " STMDB     R1!, {R4-R11}         \n"    // R1 = new PSP at R4
+       " STR       R1, [R0]              \n"    // TCB->sp = R1
          
        /* sp = ViiROS_next->sp; */
-       "PendSV_restore:                 \n"
-       " LDR.N     R1, =ViiROS_next      \n"
-       " LDR       R0, [R1]              \n"
-       " LDR       SP, [R0]              \n"
+       "PendSV_restore:                  \n"
+       " LDR       R0, =ViiROS_next      \n"     // R0 = next
+       " LDR       R1, [R0]              \n"     // R1 = next-TCB
+       " LDR       R0, [R1]              \n"     // R0 = next-TCB->sp
+       /* Load multiple, increment after */   
+       " LDMIA     R0!, {R4-R11}         \n"     // Load R4 - R11, new sp at R0
+       " MSR       PSP, R0               \n"     // PSP = R0 (SP)
+        
          
         /* ViiROS_current = ViiROS_next; */
-       " STR       R0, [R2]              \n"
-         
-        /* Restore R4 - R11 */
-       " POP       {r4-r11}              \n"
+       " STR       R1, [R2]             \n"
          
         /* __enable_irq(); */
-       " CPSIE     i                     \n"
-       " BX        LR                    \n"
+       " CPSIE     i                    \n"
+       " BX        LR                   \n" 
+
+       /*#### FIRST pendSV RUN ######### */  
+       "PendSV_first_run:               \n"
+       
+       " MOV       R3, #0x02            \n" 
+       " MSR       CONTROL, R3          \n" 
+       " ISB                            \n" 
+       " LDR       LR, =0xFFFFFFFD      \n" /* << bug fix wihtout interrupt returns to main */
+       " B         PendSV_restore       \n"  
   );
 }
