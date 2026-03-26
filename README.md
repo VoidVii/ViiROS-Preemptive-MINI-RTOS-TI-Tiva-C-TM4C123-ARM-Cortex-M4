@@ -1,4 +1,11 @@
-# ViiROS – Präemptives RTOS für ARM Cortex-M4 (TM4C123GL - TM4C123GH6PM)
+# ViiROS – Präemptives MINI RTOS für ARM Cortex-M4 (TM4C123GL - TM4C123GH6PM)
+Dieses Projekt umfasst ein eigenständig erarbeitetes Mini RTOS mit:
+- präemtives Scheduling
+- prioriätenbasierte Asuführung der Threads
+- klassischem Context Switch über PendSV
+- MSP für Interrupts (Handler Mode)
+- PSP für Threads (Thread Mode)
+- SysTick als 1ms Zeitbasis
 
 ## Features
 - Thread-System
@@ -37,10 +44,11 @@ ViiROS kann mit bis zu 32 Threads verschiedener Prioritäten arbeiten.
 Für die Threads muss:
 - Thread (TCB)
 - Stack mit Stackgröße
-- Thread-Handler 
+- Thread-Handler
+ 
 in main.c deklariert und programmiert werden.
 
-Dieses wurde für den Idle-Thread bereits in ViiROS.c hinterlegt. Der Idle-Thread wird mit ViiROS_Init() gestartet.
+Dieses wurde für den **Idle-Thread** bereits in ViiROS.c hinterlegt. Der Idle-Thread wird mit ViiROS_Init() gestartet.
 Das Starten der Threads erfolgt mit:
 
     ViiROS_Thread Red; /* Thread_TCB erstellen */
@@ -59,7 +67,7 @@ Das Starten der Threads erfolgt mit:
 
 Um den **Wechsel von MSP auf PSP** sicherzustellen muss der Current-Thread für den allerersten Context Switch mit NULL initialisiert werden:
 
-    ViiROS_current = NULL;
+    ViiROS_current = NULL; (wird in ViiROS_Init() gesetzt)
 
 Nach vollständiger Konfiguration und Initialisierung der Komponenten wird die Kontrolle über das System an ViiROS übergeben:
 
@@ -84,6 +92,8 @@ Nach vollständiger Konfiguration und Initialisierung der Komponenten wird die K
 - User switch
 
 ## Wie es funktioniert
+Das System führt nach dem Starten der einzelnen Threads mit **ViiROS_RUN()** gleich zu Beginn nach dem **PendSV** den Thread mit der **höchsten Priorität** in der **readyMask** aus. 
+Zuvor wird durch den Aufruf des Schedulers der **nächste Thread to run** ausgewählt und der PendSV getriggert. Bei dem ersten Context Switch im PendSv wird das System von MSP auf PSP umgestellt. Sicher gestellt wird dies durch die Tatsache das noch kein Thread ausgeführt wurde und der Current-Thread ein NULL-Pointer ist. Bei dem aller ersten PendSV wird einmalig das Special Register CONTROL = 0x02 und der LR = 0xFFFFFFFD gesetzt. Beides ist erforderlich damit der Wechsel von MSP auf PSP gelingt und die Threads auf dem PSP laufen.
 
 ### Periodischer Ablauf
 
@@ -161,7 +171,7 @@ Der **Index** der Bits steht für die **Priorität** der Threads:
 - "Ready" - Threads -> readyMask
 - "Blocked" - Threads -> blockedMask
 
-Zum Scannen der Masken wird die CLZ() [Count leading zeros] auf ARM verwendet und eröglich das Auslesen in einem Durchlauf.
+Zum Scannen der Masken wird die CLZ() [Count leading zeros] auf ARM verwendet und ermöglich das Auslesen in einem Durchlauf.
 
 
 ## Herausforderungen & Lösungen
