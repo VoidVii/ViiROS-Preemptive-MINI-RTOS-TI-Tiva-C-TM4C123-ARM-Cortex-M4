@@ -191,6 +191,30 @@ Zum Scannen der Masken wird die CLZ() [Count leading zeros] auf ARM verwendet un
   - Folge:    Hard Fault, sobald der Thread auf die LED zugriff.
   - Lösung:   In main() die GPIO Konfiguration ergänzen.
 
+## Architekturdiagramm
+
+	┌────────────────────────────────────────────┐
+	│              ViiROS KERNEL                 │
+	├────────────────────────────────────────────┤
+	│                                            │
+	│   SYSTICK ──► SCHEDULER ──► PENDSV         │
+	│   (1ms)        (O(1))       (Context Sw)   │
+	│                                 │          │
+	│                                 ▼          │
+	│   ┌─────────────────────────────────┐      │
+	│   │      THREAD MANAGEMENT          │      │
+	│   │  ┌───────────┬───────────┐      │      │
+	│   │  │  READY    │  BLOCKED  │      │      │
+	│   │  │ (Bitmask) │(BlockTime)│      │      │
+	│   │  └───────────┴───────────┘      │      │
+	│   └─────────────────────────────────┘      │
+	│                    │                       │
+	│                    ▼                       │
+	│   ┌─────────────────────────────────┐      │
+	│   │      HARDWARE (TM4C123GL)       │      │
+	│   │   LED   │   Switch   │ SysTick  │      │
+	│   └─────────────────────────────────┘      │
+	└────────────────────────────────────────────┘
 ## Proof of Concept
 
 ## Lernhintergrund
