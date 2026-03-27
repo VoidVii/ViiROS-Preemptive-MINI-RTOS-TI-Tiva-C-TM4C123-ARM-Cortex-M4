@@ -1,7 +1,7 @@
 # ViiROS – Präemptives MINI RTOS für ARM Cortex-M4 (TM4C123GL - TM4C123GH6PM)
 Dieses Projekt umfasst ein eigenständig erarbeitetes Mini RTOS mit:
-- präemtives Scheduling
-- prioriätenbasierte Asuführung der Threads
+- präemptives Scheduling
+- prioritätenbasierte Ausführung der Threads
 - klassischem Context Switch über PendSV
 - MSP für Interrupts (Handler Mode)
 - PSP für Threads (Thread Mode)
@@ -11,7 +11,7 @@ Dieses Projekt umfasst ein eigenständig erarbeitetes Mini RTOS mit:
 - Thread-System
 	- Thread Control Blocks (TCB)
 	- Stack pro Thread
-	- fabrizierter Inital-Stack (aufgebaut als wäre Thread vom Interrupt unterbochen)
+	- fabrizierter Initial-Stack (aufgebaut als wäre Thread vom Interrupt unterbrochen)
 	- Parallele Ausführung (Multitasking-System)
 
 - Kernel / Scheduler:
@@ -27,7 +27,7 @@ Dieses Projekt umfasst ein eigenständig erarbeitetes Mini RTOS mit:
 	- BlockWatch() -> Blocktime Management, Unblock Threads
 
 - Kontextwechsel (Context Switch):
-	- PendSV als Context Swtich Interrupt in assambly
+	- PendSV als Context Swtich Interrupt in assembly
 	- Manuelles Sichern/Laden der Calle Save Register (R4-R11) auf/vom PSP
 	- Manuelles PSP setzen
 
@@ -67,7 +67,7 @@ Das Starten der Threads erfolgt mit:
 
 Um den **Wechsel von MSP auf PSP** sicherzustellen muss der Current-Thread für den allerersten Context Switch mit NULL initialisiert werden:
 
-    ViiROS_current = NULL; (wird in ViiROS_Init() gesetzt)
+    ViiROS_current = NULL; /* wird in ViiROS_Init() gesetzt '/
 
 Nach vollständiger Konfiguration und Initialisierung der Komponenten wird die Kontrolle über das System an ViiROS übergeben:
 
@@ -77,7 +77,7 @@ Nach vollständiger Konfiguration und Initialisierung der Komponenten wird die K
 
 
 ## Projektstruktur
-	Datei				Beschreibung
+	Datei:			Beschreibung:
 	ViiROS.c/h		Kernel, Scheduler, Blocking
 	SysTick.c/h		Zeitbasis (1ms)
 	GPIO.c/h		LED, Taster 
@@ -145,7 +145,7 @@ Zuvor wird durch den Aufruf des Schedulers der **nächste Thread to run** ausgew
 **Wichtig:** **CONTROL = 0x02** und **LR = 0xFFFFFFFD** in Verbindung sind wichtig. Da der erste PendSV-Interrupt-Aufruf aus main() erfolgt steht zu nächst der falsche Wert im LR-Register!!! Wird der Wert in LR nicht auf 0xFFFFFFFD gesetzt so kehrt der PendSV-Interrupt wieder zurück zu main.c und beendet das Programm. 
 
 #### Normaler PendSV-Durchlauf
-Nach erstem PendSV wird der Brench **PendSV_first_run nie wieder aufgerufen!** Jetzt wird immer der **normale Context Switch** durchlaufen.
+Nach erstem PendSV wird der Branch **PendSV_first_run nie wieder aufgerufen!** Jetzt wird immer der **normale Context Switch** durchlaufen.
 - Speichere den Kontext des aktuellen Threads
 	- MRS       R1, PSP (move special register into general purpose register) => lade PSP und R1
  	- STMDB     R1!, {R4-R11} (store multible, decrement before) => dekrementiere R1 und speichere R11 auf PSP-Stack -> --R1 save R10
@@ -154,7 +154,7 @@ Nach erstem PendSV wird der Brench **PendSV_first_run nie wieder aufgerufen!** J
 	- Speichere PSP im Thread->SP
 
 - Lade den nächsten Thread
-	- Lad in R0 den Thread->SP (Darin ist PSP vom näcshten Thread gespeichert)
+	- Lad in R0 den Thread->SP (Darin ist PSP vom nächsten Thread gespeichert)
  	- LDMIA     R0!, {R4-R11} => Lade R4 vom Stack in R4 und inkrementiere R0 (Reihenfolge beim Laden ist R4 - R11)
   	- R0 zeigt nach dem Laden auf **R0 auf dem PSP-Stack** und ist bereit zum Laden der Hardware Register
   	- MSR       PSP, R0 => Setze PSP auf neuen R0
@@ -171,7 +171,7 @@ Der **Index** der Bits steht für die **Priorität** der Threads:
 - "Ready" - Threads -> readyMask
 - "Blocked" - Threads -> blockedMask
 
-Zum Scannen der Masken wird die CLZ() [Count leading zeros] auf ARM verwendet und ermöglich das Auslesen in einem Durchlauf.
+Zum Scannen der Masken wird die CLZ() [Count leading zeros] auf ARM verwendet und ermöglicht das Auslesen in einem Durchlauf.
 
 
 ## Herausforderungen & Lösungen
