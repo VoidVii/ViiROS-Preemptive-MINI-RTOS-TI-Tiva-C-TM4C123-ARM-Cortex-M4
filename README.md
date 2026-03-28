@@ -15,7 +15,7 @@ Quelle: https://www.ti.com/tool/de-de/EK-TM4C123GXL
 - Thread-System
 	- Thread Control Blocks (TCB)
 	- Stack pro Thread
-	- fabrizierter Initial-Stack auf PSP (als wäre Thread vom Interrupt unterbrochen)
+	- fabrizierter Initial-Interrupt-Frame-Stack auf PSP (als wäre Thread vom Interrupt unterbrochen)
    		- XPSR, PC, LR, R12, R3-R0 (Caller Saved Register)
      	- R11 - R4 (Calle Saved Register)
     - Magic Numbers zur Stack und Overflow Erkennung  
@@ -38,8 +38,8 @@ Quelle: https://www.ti.com/tool/de-de/EK-TM4C123GXL
 	- MSP (Main Stack Pointer) für Interrupts
 	- PSP (Process Stack pointer) für Threads
 	- Spacial Register CONTROL (= 0x02 -> SPSEL; Umschalten von MSP -> PSP)
-	- EXC_RETURN LR = 0xFFFFFFFD (Scheduler returns from interrupt into thread)
- 	- Idle mit WFI() (Wait For Interrupt) - Sleep bis zum nächsten Interrupt
+	- EXC_RETURN LR = 0xFFFFFFFD (Interrupt kehrt in den Thread-Modus zurück und nutzt PSP)
+
 
 - Kontextwechsel (Context Switch):
 	- PendSV als Context Switch Interrupt in assembly
@@ -65,11 +65,11 @@ in main.c deklariert und programmiert werden.
 
 **Beispiele sind in main.c zu sehen!**
 
-Dieses wurde für den **Idle-Thread** bereits in ViiROS.c hinterlegt. Der Idle-Thread wird mit ViiROS_Init() gestartet.
-Das Starten der Threads erfolgt mit:
+Der **Idle-Thread** wird bei Systemstart automatisch gestartet. 
+Das Starten der Anwender-Threads erfolgt mit:
 
     ViiROS_Thread Red; 					 /* Thread_TCB erstellen */
-    static uint32_t stack_Red[80];		 /* Stack mit Stackgröße initialisieren */
+    static uint32_t stack_Red[80];		 /* Stack mit Stackgröße initialisieren; [80] sollte zu Sicherheit nicht unterschritten werden */
 	
 	/* Thread_Handler programmieren*/
     void Red_Handler(void)
@@ -79,13 +79,12 @@ Das Starten der Threads erfolgt mit:
     }
   	/* Thread starten */ 
     ViiROS_ThreadStart(&Red,
-                         Red_Handler,
-                         Priority,
-                         stack_Red, sizeof(stack_Red));
-
-Um den **Wechsel von MSP auf PSP** sicherzustellen muss der Current-Thread für den allerersten Context Switch mit NULL initialisiert werden:
-
-    ViiROS_current = NULL; /* wird in ViiROS_Init() gesetzt '/
+                    	Red_Handler,
+                        Priority,
+                        stack_Red, sizeof(stack_Red));
+						 
+Die **Stackgröße** sollte die **80** zur Sicherheit **nicht unterschritten** werden da der Thread mindest 62 alleine schon für den Interrupt-Stack-Frame benötigt.
+Der **Thread-Handler** muss eine *while(1)-Loop* haben und darf nicht aus dieser raus. Das System unterschtützt noch **keine dynamische Thread-Löschung**!!!
 
 Nach vollständiger Konfiguration und Initialisierung der Komponenten wird die Kontrolle über das System an ViiROS übergeben:
 
@@ -95,11 +94,11 @@ Nach vollständiger Konfiguration und Initialisierung der Komponenten wird die K
 
 
 ## Projektstruktur
-	Datei:			  Beschreibung:
+	Datei:			Beschreibung:
 	ViiROS.c/h		Kernel, Scheduler, Blocking
 	SysTick.c/h		Zeitbasis (1ms)
-	GPIO.c/h		  LED, Taster 
-	main.c			  Beispiel-Threads
+	GPIO.c/h		LED, Taster 
+	main.c			Beispiel-Threads
 
 
 ## Hardware & Toolchain
@@ -110,8 +109,25 @@ Nach vollständiger Konfiguration und Initialisierung der Komponenten wird die K
 - User switch
 
 ## Wie es funktioniert
-Das System führt nach dem Starten der einzelnen Threads mit **ViiROS_RUN()** gleich zu Beginn nach dem **PendSV** den Thread mit der **höchsten Priorität** in der **readyMask** aus. 
+Das System führt nach dem Starten der einzelnen Threads mit **ViiROS_Run()** gleich zu Beginn nach dem **PendSV** den Thread mit der **höchsten Priorität** in der **readyMask** aus.
+
+- ViiROS_Run() -> Scheduler() -> current-thread == NULL, next-thread == highest ready prio -> PendSV -> set CONTROL, LR, load next-thread -> start next-thread on PSP 
+	
 Zuvor wird durch den Aufruf des Schedulers der **nächste Thread to run** ausgewählt und der PendSV getriggert. Bei dem ersten Context Switch im PendSv wird das System von MSP auf PSP umgestellt. Sicher gestellt wird dies durch die Tatsache das noch kein Thread ausgeführt wurde und der Current-Thread ein NULL-Pointer ist. Bei dem aller ersten PendSV wird einmalig das Special Register CONTROL = 0x02 und der LR = 0xFFFFFFFD gesetzt. Beides ist erforderlich damit der Wechsel von MSP auf PSP gelingt und die Threads auf dem PSP laufen.
+
+### Thread-Zustände & Blocking
+Die Threads haben zwei Zustände **Ready** und **Blocked**. Beide werden in jeweils einer 32-Bit Bitmaske repräsentiert. 
+Der **Index** der Bits steht für die **Priorität** der Threads:
+
+*                  Bit:         31 30 29 ... 5 4 3 2 1 0 <-- (priority - 1)
+*                  Value:        0  0  0 ... 0 1 0 1 0 1 
+
+- "Ready" - Threads -> readyMask
+- "Blocked" - Threads -> blockedMask
+
+Zum Scannen der Masken wird die CLZ() [Count leading zeros] auf ARM verwendet und ermöglicht das Auslesen in einem Durchlauf.
+
+Geblockt werden die Threads mit **ViiROS_BlockTime()**. Hier wird das blocktime-Attribut des TCBs auf die Zeit die der Thread geblockt sein muss gesetzt. Im Anschluss wird der Thread in readyMask auf 0 und in blockedMask auf 1 gesetzt. Mit dem anschließenden Aufruf des Schedulers wird sofort der nächste ready Thread gestartet.
 
 ### Periodischer Ablauf
 
@@ -124,6 +140,8 @@ Zuvor wird durch den Aufruf des Schedulers der **nächste Thread to run** ausgew
 	PendSV (Context Switch) [niedrigste Interrupt-Prio]
 	      │
 	Thread läuft auf PSP
+
+Im **SysTick** wird jede 1 ms **Thread->blocktime** der blockierten Threads **runtergezählt**. Wird in diesem Durchlauf **blocktime == 0** so wird der Thread von blocked auf **ready** gesetzt. Gleich im Anschluss wird der Scheduler aufgerufen und es wird bei Bedarf (current != next) der PendSV-Pendign-Bit gesetzt und der PendSV getriggert.
 	
 ### Scheduler
 	   void ViiROS_Scheduler(void)
@@ -150,9 +168,10 @@ Zuvor wird durch den Aufruf des Schedulers der **nächste Thread to run** ausgew
 
 
 #### Die Funktionsweise des Schedulers besteht aus zwei simplen Abfragen:
-- wenn readyMask 0= 0, so soll der Idle-Thread als nächstes laufen
-- wenn readyMask != 0, finde mit LOG2 = 32 - CLZ(readyMask)- nächst höchste ready Prio 
-- setze das Pendingbit von PendSV um den Context Switch auszulösen
+- wenn **readyMask == 0 (Idle-Bedingung)**, so soll der Idle-Thread als nächstes laufen
+- wenn readyMask != 0, finde mit LOG2 = 32 - CLZ(readyMask) - nächst höchste ready Prio
+	- Z. B.: readyMask = 0b0000 1001 -> 32 - 28 = 4 -> höchste ready Prio = 4	 
+- setze das Pendingbit von PendSV um den Context Switch auszulösen wenn Nächster-Thread ungleich Momentanter-Thread
 
 
 ### Context Switch (PendSV)
@@ -180,19 +199,27 @@ Nach erstem PendSV wird der Branch **PendSV_first_run nie wieder aufgerufen!** J
   	- MSR       PSP, R0 => Setze PSP auf neuen R0
   	- STR       R1, [R2] => setze ViiROS_current auf ViiROS_next
 
-### Thread-Zustände & Blocking
-
-Die Threads haben zwei Zustände **Ready** und **Blocked**. Beide werden in jeweils einer 32-Bit Bitmaske repräsentiert. 
-Der **Index** der Bits steht für die **Priorität** der Threads:
-
-*                  Bit:         31 30 29 ... 5 4 3 2 1 0 <-- (priority - 1)
-*                  Value:        0  0  0 ... 0 1 0 1 0 1 
-
-- "Ready" - Threads -> readyMask
-- "Blocked" - Threads -> blockedMask
-
-Zum Scannen der Masken wird die CLZ() [Count leading zeros] auf ARM verwendet und ermöglicht das Auslesen in einem Durchlauf.
-
+  
+						LOW ADDRESS
+						--------------
+				--------R4 <-- PSP - nach STMDB     R1!, {R4-R11} //  vor LDMIA     R0!, {R4-R11} 
+						R5
+						R6
+		   Software stk R7			Werden im PendSV gesichert und geladen
+						R8
+						R9
+						R10
+			   ---------R11
+						R0 <-- PSP - vor STMDB     R1!, {R4-R11} // nach LDMIA     R0!, {R4-R11} 
+						R1
+						R2
+		   Hardware stk R3
+						R12			Werden von Hardware Automatisch beim Eintritt des Interrupts auf PSP gesichert 
+						LR			und beim Austritt nach BX LR geladen
+						PC
+			   --------xPSR 
+						--------------
+						HIGH ADDRESS
 
 ## Herausforderungen & Lösungen
 ### Stack-Korruption durch falsche Initialisierung von Current-Thread (ViiROS_current):
