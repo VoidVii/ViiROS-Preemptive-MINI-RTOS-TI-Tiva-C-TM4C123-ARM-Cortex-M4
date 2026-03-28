@@ -15,7 +15,7 @@ Quelle: https://www.ti.com/tool/de-de/EK-TM4C123GXL
 - Thread-System
 	- Thread Control Blocks (TCB)
 	- Stack pro Thread
-	- fabrizierter Initial-Interrupt-Frame-Stack auf PSP (als wäre Thread vom Interrupt unterbrochen)
+	- fabrizierter Initial-Interrupt-Stack-Frame auf PSP (als wäre Thread vom Interrupt unterbrochen)
    		- XPSR, PC, LR, R12, R3-R0 (Caller Saved Register)
      	- R11 - R4 (Calle Saved Register)
     - Magic Numbers zur Stack und Overflow Erkennung  
@@ -83,7 +83,7 @@ Das Starten der Anwender-Threads erfolgt mit:
                         Priority,
                         stack_Red, sizeof(stack_Red));
 						 
-Die **Stackgröße** sollte die **80** zur Sicherheit **nicht unterschritten** werden da der Thread mindest 62 alleine schon für den Interrupt-Stack-Frame benötigt.
+Die **Stackgröße** sollte die **80** zur Sicherheit **nicht unterschreiten**, da der Thread mindest 62 alleine schon für den Interrupt-Stack-Frame benötigt.
 Der **Thread-Handler** muss eine *while(1)-Loop* haben und darf nicht aus dieser raus. Das System unterschtützt noch **keine dynamische Thread-Löschung**!!!
 
 Nach vollständiger Konfiguration und Initialisierung der Komponenten wird die Kontrolle über das System an ViiROS übergeben:
@@ -129,19 +129,40 @@ Zum Scannen der Masken wird die CLZ() [Count leading zeros] auf ARM verwendet un
 
 Geblockt werden die Threads mit **ViiROS_BlockTime()**. Hier wird das blocktime-Attribut des TCBs auf die Zeit die der Thread geblockt sein muss gesetzt. Im Anschluss wird der Thread in readyMask auf 0 und in blockedMask auf 1 gesetzt. Mit dem anschließenden Aufruf des Schedulers wird sofort der nächste ready Thread gestartet.
 
-### Periodischer Ablauf
+### Architekturdiagramm & Periodischer Ablauf
 
-	SysTick (1 ms) [höchste Interrupt-Prio]
-	      |
-	BlockWatch (dekrementiert blocktime, set/clear readyMask/blockedMask)
-	      │
-	Scheduler (LOG2(readyMask) → höchste Prio)
-	      │
-	PendSV (Context Switch) [niedrigste Interrupt-Prio]
-	      │
-	Thread läuft auf PSP
+	┌────────────────────────────────────────────┐	
+	│              ViiROS KERNEL                 │		Periodischer Ablauf:
+	├────────────────────────────────────────────┤	
+	│                                            │		SysTick (1 ms) [höchste Interrupt-Prio]		
+	│   SYSTICK ──► SCHEDULER ──► PENDSV         │ 			|
+	│   (1ms)        (O(1))       (Context Sw)   │		BlockWatch (dekrementiert blocktime, set/clear readyMask/blockedMask)
+	│                                 │          │			|	
+	│                                 ▼          │		Scheduler (LOG2(readyMask) → höchste Prio)
+	│   ┌─────────────────────────────────┐      │			|
+	│   │      THREAD MANAGEMENT          │      │		PendSV (Context Switch) [niedrigste Interrupt-Prio]		
+	│   │  ┌───────────┬───────────┐      │      │			|
+	│   │  │  READY    │  BLOCKED  │      │      │		Thread läuft auf PSP
+	│   │  │ (Bitmask) │(Bitmask)  │      │      │
+	│   │  └───────────┴───────────┘      │      │
+	│   └─────────────────────────────────┘      │
+	│                    │                       │
+	│                    ▼                       │
+	│   ┌─────────────────────────────────┐      │
+	│   │      HARDWARE (TM4C123GH6PM)    │      │
+	│   │   LED   │   Switch   │ SysTick  │      │
+	│   └─────────────────────────────────┘      │
+	└────────────────────────────────────────────┘
 
-Im **SysTick** wird jede 1 ms **Thread->blocktime** der blockierten Threads **runtergezählt**. Wird in diesem Durchlauf **blocktime == 0** so wird der Thread von blocked auf **ready** gesetzt. Gleich im Anschluss wird der Scheduler aufgerufen und es wird bei Bedarf (current != next) der PendSV-Pendign-Bit gesetzt und der PendSV getriggert.
+Die Grundstruktur von ViiROS wiederholt sich jede 1 ms mit dem SysTick der den Puls des Systems vorgibt:
+
+1. Systick jede 1 ms
+	- Aufrufen von BlockWatch() u. Scheduler()
+2. BlockWatch() =>  **Thread->blocktime** **runtergezählt**
+	- Wird **blocktime == 0** => Thread in blockedMask löschen und in readyMask setzen
+3. Scheduler() => Update nächsten ready Thread mit höchster Priorität
+	- Trigger Context Switch durch setzen von PendSV-Pending-Bit wenn momentatner Thread nicht dem nächsten Thread entspricht
+4. Nächsten Thread ausführen
 	
 ### Scheduler
 	   void ViiROS_Scheduler(void)
@@ -168,29 +189,32 @@ Im **SysTick** wird jede 1 ms **Thread->blocktime** der blockierten Threads **ru
 
 
 #### Die Funktionsweise des Schedulers besteht aus zwei simplen Abfragen:
-- wenn **readyMask == 0 (Idle-Bedingung)**, so soll der Idle-Thread als nächstes laufen
-- wenn readyMask != 0, finde mit LOG2 = 32 - CLZ(readyMask) - nächst höchste ready Prio
+1. **readyMask == 0 (Idle-Bedingung)**
+	- so soll der Idle-Thread als nächstes laufen
+2. **readyMask != 0**
+	- finde mit LOG2 = 32 - CLZ(readyMask) - nächst höchste ready Priorität
 	- Z. B.: readyMask = 0b0000 1001 -> 32 - 28 = 4 -> höchste ready Prio = 4	 
-- setze das Pendingbit von PendSV um den Context Switch auszulösen wenn Nächster-Thread ungleich Momentanter-Thread
+3. Wenn Nächster-Thread ungleich Momentanter-Thread
+	- Setze das Pendingbit von PendSV um den Context Switch triggern
 
 
 ### Context Switch (PendSV)
 #### Beim ersten PendSV in System:
 - Current-Thread = NULL -> springt zu PendSV_first_run:
-  	- Setze Special Register CONTROL = 0x02 (SPSEL = 1 => Bit 1) ==> sagt der CPU "Benutze PSP" (Process Stack Pointer)
+  	- Setze Special Register CONTROL = 0x02 (SPSEL (Bit 1) = 1 ==> sagt der CPU "Benutze PSP" (Process Stack Pointer)
   	- Setze LR = 0xFFFFFFFD (EXC_RETURN) ==> Spring aus dem Interrupt und nutze PSP
-  	- ISB ==> notwendig um Änderungen zu übernehmen
+  	- ISB ==> notwendig um Änderungen zu übernehmen (Instruction Synchronization Barrer)
 
-**Wichtig:** **CONTROL = 0x02** und **LR = 0xFFFFFFFD** in Verbindung sind wichtig. Da der erste PendSV-Interrupt-Aufruf aus main() erfolgt steht zu nächst der falsche Wert im LR-Register!!! Wird der Wert in LR nicht auf 0xFFFFFFFD gesetzt so kehrt der PendSV-Interrupt wieder zurück zu main.c und beendet das Programm. 
+**Wichtig:** **CONTROL = 0x02** und **LR = 0xFFFFFFFD** in Verbindung sind wichtig. Da der erste PendSV-Interrupt-Aufruf aus main() erfolgt steht zu nächst der falsche Wert im LR-Register!!! Wird der Wert in LR nicht auf 0xFFFFFFFD gesetzt so kehrt der PendSV-Interrupt wieder zurück zu main.c weil die CPU weiterhin den MSP nutz und beendet das Programm. 
 
 #### Normaler PendSV-Durchlauf
 Nach erstem PendSV wird der Branch **PendSV_first_run nie wieder aufgerufen!** Jetzt wird immer der **normale Context Switch** durchlaufen.
 - Speichere den Kontext des aktuellen Threads
-	- MRS       R1, PSP (move special register into general purpose register) => lade PSP und R1
+	- MRS       R1, PSP (move special register into general purpose register) => lade R1 = PSP
  	- STMDB     R1!, {R4-R11} (store multible, decrement before) => dekrementiere R1 und speichere R11 auf PSP-Stack -> --R1 save R10
-  	- Reihenfolge ist hier R11 -> R4  (beim Laden R4 - R11)
-	- STR       R1, [R0]  => Speichere R1 (PSP) in [R0] (Thread->SP) **R0 = Thread_TCB => [Thread_TCN] = Thread->SP (erstes Atrribut im TCB)
-	- Speichere PSP im Thread->SP
+  	- Reihenfolge ist hier R11 -> R4
+	- STR       R1, [R0]  => [R0] = R1 => R0([Thread_TCB] + Offset 0x00 --> Thread->SP (erstes Atrribut im TCB)) = R1
+		- Speichere PSP im Thread->SP
 
 - Lade den nächsten Thread
 	- Lad in R0 den Thread->SP (Darin ist PSP vom nächsten Thread gespeichert)
@@ -199,6 +223,7 @@ Nach erstem PendSV wird der Branch **PendSV_first_run nie wieder aufgerufen!** J
   	- MSR       PSP, R0 => Setze PSP auf neuen R0
   	- STR       R1, [R2] => setze ViiROS_current auf ViiROS_next
 
+#### Interrupt-Stack-Layout
   
 						LOW ADDRESS
 						--------------
@@ -210,14 +235,14 @@ Nach erstem PendSV wird der Branch **PendSV_first_run nie wieder aufgerufen!** J
 						R9
 						R10
 			   ---------R11
-						R0 <-- PSP - vor STMDB     R1!, {R4-R11} // nach LDMIA     R0!, {R4-R11} 
+	PSP nach BX LR  --> R0 <-- PSP - vor STMDB     R1!, {R4-R11} // nach LDMIA     R0!, {R4-R11} 
 						R1
 						R2
 		   Hardware stk R3
-						R12			Werden von Hardware Automatisch beim Eintritt des Interrupts auf PSP gesichert 
+						R12			Werden von Hardware automatisch beim Eintritt des Interrupts auf PSP gesichert 
 						LR			und beim Austritt nach BX LR geladen
 						PC
-			   --------xPSR 
+			   --------xPSR <-- PSP nach dem laden der Hardware-Register
 						--------------
 						HIGH ADDRESS
 
@@ -243,31 +268,6 @@ Nach erstem PendSV wird der Branch **PendSV_first_run nie wieder aufgerufen!** J
   - Folge:    CPU kehrte nach PendSV zurück zu main() und beendete das Programm.
   - Lösung:   Zusätzlich zu CONTROL den korrekten EXC_RETURN in LR schreiben - LR = 0XFFFFFFFD => "return" in Thread-Mode und nutze PSP!!!
 
-
-## Architekturdiagramm
-
-	┌────────────────────────────────────────────┐
-	│              ViiROS KERNEL                 │
-	├────────────────────────────────────────────┤
-	│                                            │
-	│   SYSTICK ──► SCHEDULER ──► PENDSV         │
-	│   (1ms)        (O(1))       (Context Sw)   │
-	│                                 │          │
-	│                                 ▼          │
-	│   ┌─────────────────────────────────┐      │
-	│   │      THREAD MANAGEMENT          │      │
-	│   │  ┌───────────┬───────────┐      │      │
-	│   │  │  READY    │  BLOCKED  │      │      │
-	│   │  │ (Bitmask) │(BlockTime)│      │      │
-	│   │  └───────────┴───────────┘      │      │
-	│   └─────────────────────────────────┘      │
-	│                    │                       │
-	│                    ▼                       │
-	│   ┌─────────────────────────────────┐      │
-	│   │      HARDWARE (TM4C123GH6PM)    │      │
-	│   │   LED   │   Switch   │ SysTick  │      │
-	│   └─────────────────────────────────┘      │
-	└────────────────────────────────────────────┘
 ## Proof of Concept
 
 ## Lernhintergrund
