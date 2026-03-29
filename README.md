@@ -1,6 +1,11 @@
-# ViiROS – Präemptives MINI RTOS für ARM Cortex-M4 (TM4C123GL - TM4C123GH6PM)
+# ViiROS – eigenes Präemptives MINI RTOS für ARM Cortex-M4 (TM4C123GL - TM4C123GH6PM)
 
 Dieses Projekt umfasst ein **eigenständig von 0 erarbeitetes Mini RTOS** mit:
+
+<img width="300" height="260" alt="grafik" src="https://github.com/user-attachments/assets/dfaf1cd7-16ac-479e-95ba-650f5d7e973a" /> 
+
+Quelle: https://www.ti.com/tool/de-de/EK-TM4C123GXL			
+
 - präemptives O(1)-Scheduling
 - prioritätenbasierte Ausführung der Threads
 - klassischem Context Switch über PendSV
@@ -8,8 +13,19 @@ Dieses Projekt umfasst ein **eigenständig von 0 erarbeitetes Mini RTOS** mit:
 - PSP für Threads (Thread Mode)
 - SysTick als 1ms Zeitbasis
 
-<img width="300" height="260" alt="grafik" src="https://github.com/user-attachments/assets/dfaf1cd7-16ac-479e-95ba-650f5d7e973a" /> 
-Quelle: https://www.ti.com/tool/de-de/EK-TM4C123GXL
+
+## Proof of Concept
+<img width="1157" height="230" alt="AnalyzerViewOnPreemptiveScheduling2" src="https://github.com/user-attachments/assets/a66bb215-a624-423a-8709-959575a12aff" />
+
+Zu erkennen ist, dass die **Thread durch höchere Prioritäten unterbrochen** werden. Der SysTick kommt jede 1 ms und ist das Herz des Systems.
+
+Der SysTick wurde zum Zwecke der Verdeutlichung mit dem **"Triggern"** des GPIOF Pins 4 versehen. Ähnliches trifft auch auf den Idle-Thread, der den Pin 0 toggelt zu.
+Auch die Thread-Handler wurden mit dem Toggeln von den jeweiligen LEDs beauftragt. 
+
+Die Prioritätem nehmen von oben nach unten ab: Red = 3, Blue = 2, Green = 1, Idle = 0.
+
+Mehr zum Setup gibt es am Ende der Readme.
+
 
 ## Features
 - Thread-System
@@ -68,8 +84,8 @@ in main.c deklariert und programmiert werden.
 Der **Idle-Thread** wird bei Systemstart automatisch gestartet. 
 Das Starten der Anwender-Threads erfolgt mit:
 
-    ViiROS_Thread Red; 					 /* Thread_TCB erstellen */
-    static uint32_t stack_Red[80];		 /* Stack mit Stackgröße initialisieren; [80] sollte zu Sicherheit nicht unterschritten werden */
+    ViiROS_Thread Red; 					
+    static uint32_t stack_Red[80];		 
 	
 	/* Thread_Handler programmieren*/
     void Red_Handler(void)
@@ -83,7 +99,7 @@ Das Starten der Anwender-Threads erfolgt mit:
                         Priority,
                         stack_Red, sizeof(stack_Red));
 						 
-Die **Stackgröße** sollte die **80** zur Sicherheit **nicht unterschreiten**, da der Thread mindest 62 alleine schon für den Interrupt-Stack-Frame benötigt.
+Die **Stackgröße** sollte zur Sicherheit **nicht zu gering** gewählt werden, da schon der Thread mindest 62 Bytes alleine für den Interrupt-Stack-Frame benötigt.
 Der **Thread-Handler** muss eine *while(1)-Loop* haben und darf nicht aus dieser raus. Das System unterschtützt noch **keine dynamische Thread-Löschung**!!!
 
 Nach vollständiger Konfiguration und Initialisierung der Komponenten wird die Kontrolle über das System an ViiROS übergeben:
@@ -165,28 +181,33 @@ Die Grundstruktur von ViiROS wiederholt sich jede 1 ms mit dem SysTick der den P
 4. Nächsten Thread ausführen
 	
 ### Scheduler
-	   void ViiROS_Scheduler(void)
-	    {
-	      ViiROS_Thread *current = ViiROS_current;
-	      ViiROS_Thread *next;
-	      
-	      if(ViiROS_readyMask == 0U) /**< no thread ready = idle */
-	      {
-	        next = Active_Thread[0]; /**< Idle-Thread */
-	      }
-	      else 
-	      {
-	        uint32_t highPrio = LOG2(ViiROS_readyMask); /**< highest ready prio */
-	        next = Active_Thread[highPrio];
-	      }
-	      
-	      if(current != next)
-	      {
-	        ViiROS_next = next;
-	        SCB->ICSR = SCB_ICSR_PENDSVSET_Msk; /**<trigger PendSV for context switch */
-	      } 
-	    }
 
+	/**
+	*@brief Preemptive Scheduler (Priority, Blocking)
+	*@note LOG2(readyMask) >> get highest priority in one operation
+	*@note Triggers PendSV
+	*/
+	void ViiROS_Scheduler(void)
+	{
+	  ViiROS_Thread *current = ViiROS_current; /**< Current-thread already known */
+	  ViiROS_Thread *next;
+	  
+	  if(ViiROS_readyMask == 0U) /**< no thread ready = idle */
+	  {
+	    next = Active_Thread[0]; /**< load idle thread */
+	  }
+	  else 
+	  {
+	    uint32_t highPrio = LOG2(ViiROS_readyMask); /**< highest ready prio */
+	    next = Active_Thread[highPrio]; /**< load highest ready Thread into next */
+	  }
+	  
+	  if(current != next) /**< update and trigger PendSV only when thread changed */
+	  {
+	    ViiROS_next = next; /**< set the next thread to run */
+	    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk; /**<trigger PendSV for context switch */
+	  } 
+	}
 
 #### Die Funktionsweise des Schedulers besteht aus zwei simplen Abfragen:
 1. **readyMask == 0 (Idle-Bedingung)**
@@ -271,14 +292,13 @@ Nach erstem PendSV wird der Branch **PendSV_first_run nie wieder aufgerufen!** J
   - Folge:    CPU kehrte nach PendSV zurück zu main() und beendete das Programm.
   - Lösung:   Zusätzlich zu CONTROL den korrekten EXC_RETURN in LR schreiben - LR = 0XFFFFFFFD => "return" in Thread-Mode und nutze PSP!!!
 
-## Proof of Concept
 
 ## Lernhintergrund
 Dieses Projekt baut konzeptionell auf den Inhalten des **Modern Embedded Systems Programming Course** von **Miro Samec (Quantum Leaps)** auf, den ich intensiv studiert habe.  Die dort vermittelten Prinzipien – insbesondere zu präemptivem Scheduling, PendSV, Stack-Management und RTOS-Interna – habe ich verstanden und in eine **eigene, eigenständige Implementierung** überführt.
 
 Der Code ist keine 1:1-Umsetzung von Beispielen, sondern meine eigene Arbeit, in der ich die Konzepte angewendet, weiterentwickelt und an meine Anforderungen angepasst habe. Die Lehren aus diesen Bemühungen und die eigenständige Umsetzung ermöglichten es mir, die Themen nicht nur anzuwenden, sondern auch auf einer tieferen Ebene zu verstehen und zu verinnerlichen.
 
-Das Projekt Preemptive scheduler ViiROS baut auf meinem vorherigen Projekt Cooperative scheduler auf und repräsentiert meine erstes größere Projekt in Thema Embedded Systems.
+Das Projekt Preemptive scheduler ViiROS baut auf meinem vorherigen Projekt Cooperative scheduler auf und repräsentiert meine erstes größere Projekt, **von 0 zum Minit-RTOS**, im Thema Embedded Systems. 
 
 ## Debugging - Screenshots - Bugs
 
@@ -298,4 +318,13 @@ Das Projekt Preemptive scheduler ViiROS baut auf meinem vorherigen Projekt Coope
 **INFO:** Wenn LR nicht manuell im PendSV auf 0xFFFF FFFD gesetzt wird kehrt die CPU ebenfalls in main() zurück!!
 
 <img width="850" height="578" alt="CurrentFalschGesetzt" src="https://github.com/user-attachments/assets/fbf25b5e-af18-447d-ad58-934eb94dcfe3" />
+
+# Setup
+1. Laptop -> IAR Workbench (Arm), Pulsview
+2. Dev-Board Tiva C Series LaunchPad TM4C123GXL -> LEDs, User Switch und mehr
+3. Logic Analyzer 24MHz 8 Channel
+
+
+![Setup](https://github.com/user-attachments/assets/721a0691-2700-42d8-88e7-1d9f7d48b26c)
+
 
