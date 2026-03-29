@@ -249,13 +249,16 @@ Nach erstem PendSV wird der Branch **PendSV_first_run nie wieder aufgerufen!** J
 ## Herausforderungen & Lösungen
 ### Stack-Korruption durch falsche Initialisierung von Current-Thread (ViiROS_current):
   - Problem: ViiROS_current = Idle-Thread vor erstem Context Switch
-  - Folge:   PSP (Process Stack Pointer) im Idle-TCB wurde mit MSP (Main Stack Pointer) im PendSV_Handler überschrieben.
-           Sobald der Idle-Thread an der Reihe war führte der MSP wieder zurück in main() und beendete das System.
-  - Lösung:  ViiROS_current = NULL, somit wurde der Wechsel von MSP zu PSP sichergestellt
+  - Folge:   SP im Idle-TCB wurde mit MSP (Main Stack Pointer) im PendSV_Handler überschrieben.
+    		Die Abfrage im PendSv für den Sonderfall erster Druchlauf wurde nicht erfüllt.
+    		CONTROLL und LR wurden nicht richtig gesetzt.
+  - Lösung:  ViiROS_current = NULL, somit wurde der Wechsel von MSP zu PSP sichergestellt und der Idle-Thread nicht korumpiert
 
 ### Stack Overflow durch zu kleine Thread-Stacks:
-  - Problem:  Stackgröße für die einzelnen Threads zu klein gewählt. Der Stack wuchs in den Bereich des Arrays der aktiven Threads (Active_Thread[]).
-  - Folge:    Array-Einträge wurden überschrieben und gestartete Threads zerstört.
+  - Problem:  Stackgröße für die einzelnen Threads zu klein gewählt.
+  - Folge:    Der Stack wuchs in den Bereich des Arrays der aktiven Threads (Active_Thread[]).   
+  			  Array-Einträge wurden überschrieben und gestartete Threads zerstört.
+    		  Und löste weitere Probleme wie korumpierte PC werte und BusFault aus.
   - Lösung:   Zu kleine Größe wurde mit Hilfe von Magic Numbers (0xCAFEBABE) erkannt und der Stackgröße schrittweise erhöht.
 
 ### Hard Faults durch nicht initialisierte GPIO-Pins
@@ -291,6 +294,8 @@ Das Projekt Preemptive scheduler ViiROS baut auf meinem vorherigen Projekt Coope
 	- CONTROL(0x02) und LR(0xFFFF FFFD) wurden nicht gesetzt!
 	- Kein Wechsel von MSP auf PSP
  	- Nach Interrupt geht zurück in ViiROS_Run() in main.c
+
+**INFO:** Wenn LR nicht manuell im PendSV auf 0xFFFF FFFD gesetzt wird kehrt die CPU ebenfalls in main() zurück!!
 
 <img width="850" height="578" alt="CurrentFalschGesetzt" src="https://github.com/user-attachments/assets/fbf25b5e-af18-447d-ad58-934eb94dcfe3" />
 
