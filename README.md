@@ -1,6 +1,6 @@
 # ViiROS – Präemptives MINI RTOS für ARM Cortex-M4 (TM4C123GL - TM4C123GH6PM)
 
-Dieses Projekt umfasst ein eigenständig erarbeitetes Mini RTOS mit:
+Dieses Projekt umfasst ein **eigenständig von 0 erarbeitetes Mini RTOS** mit:
 - präemptives O(1)-Scheduling
 - prioritätenbasierte Ausführung der Threads
 - klassischem Context Switch über PendSV
