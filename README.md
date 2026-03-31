@@ -47,7 +47,7 @@ Ziel war es, die grundlegenden Mechanismen eines präemptiven Schedulers praktis
 
 Der Fokus lag dabei insbesondere auf:
 - Prioritätbasiertem Scheduling
-- Conext Switch mit PendSV in Assembler
+- Context Switch mit PendSV in Assembler
 - Nutzung von MSP und PSP
 - Verständnis Arm Cortex-M4 Architektur
 
@@ -56,9 +56,9 @@ Der Fokus lag dabei insbesondere auf:
 - Fehler im Stack-Handling führen schnell zu schwer nachvollziehbaren Problemen
 - Das Zusammenspiel von Interrupts, Scheduler und CPU-Modi ist entscheidend für ein stabiles System
 
-## Eingenschaften des Systems:
+## Eigenschaften des Systems:
 - prioritätenbasierte parallele Ausführung mehrere Threads
-- Context Switch über PendSV in Assemlber
+- Context Switch über PendSV in Assembler
 - MSP für Interrupts (Handler Mode)
 - PSP für Threads (Thread Mode)
 - SysTick als 1ms Zeitbasis
@@ -213,7 +213,7 @@ Die Grundstruktur von ViiROS wiederholt sich jede 1 ms mit dem SysTick der den P
 2. BlockWatch() =>  **Thread->blocktime** **runtergezählt**
 	- Wird **blocktime == 0** => Thread in blockedMask löschen und in readyMask setzen
 3. Scheduler() => Update nächsten ready Thread mit höchster Priorität
-	- Trigger Context Switch durch setzen von PendSV-Pending-Bit wenn momentatner Thread nicht dem nächsten Thread entspricht
+	- Trigger Context Switch durch setzen von PendSV-Pending-Bit wenn momentaner Thread nicht dem nächsten Thread entspricht
 4. Nächsten Thread ausführen
 	
 ### Scheduler
@@ -338,14 +338,14 @@ Das Projekt Preemptive scheduler ViiROS baut auf meinem vorherigen Projekt Coope
 
 ## Debugging - Screenshots - Bugs
 
-### Zu kleine Stackgröße --> Stack Overflow -> BusFault, Active-Thread[] korumpiert
+### Zu kleine Stackgröße --> Stack Overflow -> BusFault, Active-Thread[] korrumpiert
 
 <img width="650" height="350" alt="ZuKleineStackProbleme" src="https://github.com/user-attachments/assets/0b4f6e69-1684-4dea-a1d9-7c51c62d8116" />
 
 ### ViiROS_current =! NULL beim System-Start
 1. Falscher Current-Thread zum System-Start
 2. ViiROS_IDLE (Current-Thread) initialisierter Stack mit ViiROS_Idle->SP 0x2000´0248 zeigt auf R4 = 0xCAFEBABE
-3. ViiROS_Idle->SP wurde im PendSV beim speichern des PSP in Idle->Sp mit flaschen Wert überschrieben => Idle-Thread zerstört
+3. ViiROS_Idle->SP wurde im PendSV beim speichern des PSP in Idle->Sp mit falschen Wert überschrieben => Idle-Thread zerstört
 5. CBZ (Abfrage cuurent == 0?) keinen Sprung zum PendSV_first_run
 	- CONTROL(0x02) und LR(0xFFFF FFFD) wurden nicht gesetzt!
 	- Kein Wechsel von MSP auf PSP
@@ -356,7 +356,7 @@ Das Projekt Preemptive scheduler ViiROS baut auf meinem vorherigen Projekt Coope
 <img width="850" height="578" alt="CurrentFalschGesetzt" src="https://github.com/user-attachments/assets/fbf25b5e-af18-447d-ad58-934eb94dcfe3" />
 
 # Setup
-1. Laptop -> IAR Workbench (Arm), Pulsview
+1. Laptop -> Tools: IAR Workbench (Arm), PulsView
 2. Dev-Board Tiva C Series LaunchPad TM4C123GXL -> LEDs, User Switch und mehr
 3. Logic Analyzer 24MHz 8 Channel
 
