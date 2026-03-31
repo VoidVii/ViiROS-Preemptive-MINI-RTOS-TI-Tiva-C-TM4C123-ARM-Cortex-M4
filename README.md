@@ -2,12 +2,12 @@
 
 Dieses Projekt präsentiert ein eigentständig entwickeltes Mini-RTOS zur praktischen Auseinandersetzung mit präemptiven Scheduling und Context Switching auf ARM Cortex-M4.
 
-Bild
+bild
 
 ## Proof of Concept
 <img width="1157" height="230" alt="AnalyzerViewOnPreemptiveScheduling2" src="https://github.com/user-attachments/assets/a66bb215-a624-423a-8709-959575a12aff" />
 
-Auf dem Screenshot ist der Ablauf des gestarteten Threads und SysTick-Ticks zusehen. Die **Threads** folgen den Regeln des System und werden **durch höchere Prioritäten unterbrochen**. Der SysTick als Zeitbasis und Management kommt regelmäßig jede 1 ms und ist das Herz des Systems.
+Auf dem Screenshot ist der Ablauf der gestarteten Threads und SysTick-Interrupts zusehen. Die **Threads** folgen den Regeln des System und werden **durch höchere Prioritäten unterbrochen**. Der SysTick als Zeitbasis und Management kommt regelmäßig jede 1 ms und ist das Herz des Systems.
 
 Der SysTick wurde zum Zwecke der Verdeutlichung mit dem **"Triggern"** des GPIOF Pins 4 versehen. Ähnliches trifft auch auf den Idle-Thread, der den Pin 0 toggelt zu.
 Auch die Thread-Handler wurden mit dem Toggeln von den jeweiligen LEDs beauftragt. 
