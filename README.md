@@ -1,34 +1,60 @@
 # ViiROS – Präemptives MINI RTOS für ARM Cortex-M4 (TM4C123GL - TM4C123GH6PM)
 
-Dieses Projekt präsentiert ein eigentständig entwickeltes Mini-RTOS zur praktischen Auseinandersetzung mit präemptiven Scheduling und Context Switching auf ARM Cortex-M4.
+<table>
+  <tr>
+    <td width="60%">
+      <b>Übersicht:</b><br>
+      ViiROS ist ein eigenständig von Grund auf entwickelter minimaler, präemptiver Echtzeitkernel für ARM Cortex-M4. 
+	  Entwickelt als Lernprojekt zur Vertiefung von RTOS-Konzepten und Hardware-naher Programmierung.
+	  Der Fokus liegt auf prioritätsbasiertem Scheduling, Context Switch (PendSV) und SysTick-Interrupt als System-Takt – vollständig ohne externe Bibliotheken
+    </td>
+    <td width="40%">
+      <img width="450" height="370" alt="grafik" src="https://github.com/user-attachments/assets/e00fc2a9-9b90-4142-ba76-9efb73b29d35" />
+    </td>
+  </tr>
+</table>
 
-bild
 
 ## Proof of Concept
 <img width="1157" height="230" alt="AnalyzerViewOnPreemptiveScheduling2" src="https://github.com/user-attachments/assets/a66bb215-a624-423a-8709-959575a12aff" />
 
-Auf dem Screenshot ist der Ablauf der gestarteten Threads und SysTick-Interrupts zusehen. Die **Threads** folgen den Regeln des System und werden **durch höchere Prioritäten unterbrochen**. Der SysTick als Zeitbasis und Management kommt regelmäßig jede 1 ms und ist das Herz des Systems.
+Die PulsView-Messung veranschaulicht die prioritätsbasierte, präemptive Arbeitsweise des Kernels.
 
-Der SysTick wurde zum Zwecke der Verdeutlichung mit dem **"Triggern"** des GPIOF Pins 4 versehen. Ähnliches trifft auch auf den Idle-Thread, der den Pin 0 toggelt, zu.
-Auch die Thread-Handler wurden mit dem Toggeln von den jeweiligen LEDs beauftragt. 
+Die Prioritäten nehmen von oben nach unten ab:
+- Red = 3, Blue = 2, Green = 1, Idle = 0
 
-Die Prioritätem nehmen von oben nach unten ab: Red = 3, Blue = 2, Green = 1, Idle = 0.
+Pin-Belegung (PORT F):
+- SysTick = Pin 4 · Red = Pin 1 · Blue = Pin 2 · Green = Pin 3 · Idle = Pin 0
 
-Mehr zum Setup gibt es am Ende der Readme.
+Zu erkennen ist:
+
+- Der SysTick-Interrupt tritt im festen Takt von 1 ms auf
+- Der Scheduler startet zuverlässig immer den Thread mit der höchsten Priorität
+- Threads werden gemäß den Systemregeln durch höher priorisierte Threads präemptiv unterbrochen
+- Der Context Switch nach dem Scheduling erfolgt korrekt
+- **Unterbrochene Threads setzen ihre Ausführung exakt an der Stelle der Unterbrechung fort**
+- Der Idle-Thread läuft nur, wenn kein anderer Thread aktiv ist
+
+Zur Visualisierung wurde der SysTick-Interrupt-Handler so erweitert, dass GPIOF Pin 4 getriggert wird.
+Der Idle-Thread toggelt entsprechend Pin 0.
+
+Die Thread-Handler selbst sind so implementiert, dass sie die jeweiligen LEDs mehrfach toggeln und dadurch die Ausführung sichtbar machen.
+
+Weitere Details zum Setup befinden sich am Ende der Readme.
 
 ## Ziel des Projekts
-Ziel war es, die grundlegenden Mechanismen eines präemtiven Schedulers praktisch zu verstehen und selbst umzusetzen.
+Ziel war es, die grundlegenden Mechanismen eines präemptiven Schedulers praktisch zu verstehen und selbst umzusetzen.
 
 Der Fokus lag dabei insbesondere auf:
 - Prioritätbasiertem Scheduling
-- Conext Switch mit PendSV mit Asssembler
+- Conext Switch mit PendSV in Assembler
 - Nutzung von MSP und PSP
+- Verständnis Arm Cortex-M4 Architektur
 
 ## Erkenntnisse 
 - Context Switch ist deutlich komplexer als es auf den ersten Blick wirkt
 - Fehler im Stack-Handling führen schnell zu schwer nachvollziehbaren Problemen
-- Das Zusammenspiel von Interrupts, Scheduler und CPU-Modi ist entscheident für ein stabiles System
-- Das Thema rum um die Funktionsweise eines RTOS ist enorm interessant
+- Das Zusammenspiel von Interrupts, Scheduler und CPU-Modi ist entscheidend für ein stabiles System
 
 ## Eingenschaften des Systems:
 - prioritätenbasierte parallele Ausführung mehrere Threads
@@ -120,11 +146,12 @@ Nach vollständiger Konfiguration und Initialisierung der Komponenten wird die K
 
 
 ## Projektstruktur
-	Datei:			Beschreibung:
-	ViiROS.c/h		Kernel, Scheduler, Blocking
-	SysTick.c/h		Zeitbasis (1ms)
-	GPIO.c/h		LED, Taster 
-	main.c			Beispiel-Threads
+
+Datei:			
+ViiROS.c/h 	->	Kernel, Scheduler, Blocking
+SysTick.c/h	->	Zeitbasis (1ms)
+GPIO.c/h	->	LED, Taster 
+main.c		->	Beispiel-Threads
 
 
 ## Hardware & Toolchain
@@ -335,6 +362,9 @@ Das Projekt Preemptive scheduler ViiROS baut auf meinem vorherigen Projekt Coope
 3. Logic Analyzer 24MHz 8 Channel
 
 
-![Setup](https://github.com/user-attachments/assets/721a0691-2700-42d8-88e7-1d9f7d48b26c)
+<img width="850" height="550" alt="grafik" src="https://github.com/user-attachments/assets/313899da-e5b0-461a-91c9-caafd1015e4e" />
+
+
+
 
 
