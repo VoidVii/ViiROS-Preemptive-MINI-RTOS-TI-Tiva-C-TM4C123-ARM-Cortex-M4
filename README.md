@@ -334,7 +334,7 @@ Dieses Projekt baut konzeptionell auf den Inhalten des **Modern Embedded Systems
 
 Der Code ist keine 1:1-Umsetzung von Beispielen, sondern meine eigene Arbeit, in der ich die Konzepte angewendet, weiterentwickelt und an meine Anforderungen angepasst habe. Die Lehren aus diesen Bemühungen und die eigenständige Umsetzung ermöglichten es mir, die Themen nicht nur anzuwenden, sondern auch auf einer tieferen Ebene zu verstehen und zu verinnerlichen.
 
-Das Projekt Preemptive scheduler ViiROS baut auf meinem vorherigen Projekt Cooperative scheduler auf und repräsentiert meine erstes größere Projekt, **von 0 zum Minit-RTOS**, im Thema Embedded Systems. 
+Das Projekt ViiROS – Präemptives MINI RTOS baut auf meinem vorherigen Projekt Kooperativer-Scheduler auf und repräsentiert meine erstes größere Projekt, **von 0 zum Minit-RTOS**, im Thema Embedded Systems. 
 
 ## Debugging - Screenshots - Bugs
 
