@@ -346,6 +346,7 @@ Das Projekt ViiROS – Präemptives MINI RTOS baut auf meinem vorherigen Projekt
 1. Falscher Current-Thread zum System-Start
 2. ViiROS_IDLE (Current-Thread) initialisierter Stack mit ViiROS_Idle->SP 0x2000´0248 zeigt auf R4 = 0xCAFEBABE
 3. ViiROS_Idle->SP wurde im PendSV beim speichern des PSP in Idle->Sp mit falschen Wert überschrieben => Idle-Thread zerstört
+4. LR-Register für zurück zu main ViiROS_Run() (MSP)
 5. CBZ (Abfrage cuurent == 0?) keinen Sprung zum PendSV_first_run
 	- CONTROL(0x02) und LR(0xFFFF FFFD) wurden nicht gesetzt!
 	- Kein Wechsel von MSP auf PSP
