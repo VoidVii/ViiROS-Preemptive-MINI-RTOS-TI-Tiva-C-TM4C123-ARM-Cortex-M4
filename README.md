@@ -24,7 +24,7 @@ Die Prioritäten nehmen von oben nach unten ab:
 - Red = 3, Blue = 2, Green = 1, Idle = 0
 
 Pin-Belegung (PORT F):
-- SysTick = Pin 4 - Red = Pin 1 - Blue = Pin 2 - Green = Pin 3 - Idle = Pin 0
+- SysTick = Pin 4 | Red = Pin 1 | Blue = Pin 2 | Green = Pin 3 | Idle = Pin 0
 
 Zu erkennen ist:
 
